@@ -1,0 +1,17 @@
+<!-- HTML 介面 -->
+<input type="file" id="imageUpload" accept="image/*">
+<div id="characterCard">
+    <img id="previewImg" src="default-avatar.png" alt="角色頭像" width="100">
+    <p>冒險者：亞瑟</p>
+</div>
+
+<script>
+// JavaScript 邏輯：監聽上傳並即時替換圖片
+document.getElementById('imageUpload').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const imageUrl = URL.createObjectURL(file);
+        document.getElementById('previewImg').src = imageUrl;
+    }
+});
+</script>
