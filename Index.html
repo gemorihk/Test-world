@@ -1,17 +1,402 @@
-<!-- HTML 介面 -->
-<input type="file" id="imageUpload" accept="image/*">
-<div id="characterCard">
-    <img id="previewImg" src="default-avatar.png" alt="角色頭像" width="100">
-    <p>冒險者：亞瑟</p>
-</div>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>手遊框架 - 標題與大廳</title>
+    <style>
+        /* ==========================================
+           1. 基礎重置與手機螢幕適應 (RWD Container)
+           ========================================== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
 
-<script>
-// JavaScript 邏輯：監聽上傳並即時替換圖片
-document.getElementById('imageUpload').addEventListener('change', function(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const imageUrl = URL.createObjectURL(file);
-        document.getElementById('previewImg').src = imageUrl;
-    }
-});
-</script>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 模擬手機螢幕容器 (16:9 或 19.5:9 比例) */
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            max-width: 430px; /* iPhone Pro Max 寬度 */
+            max-height: 932px;
+            background-color: #1a1a24;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        /* 視圖 (Screens) 切換控制 */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            z-index: 1;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* 通用按鈕樣式 */
+        .btn {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(108, 92, 231, 0.4);
+            transition: transform 0.1s, opacity 0.2s;
+            text-align: center;
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+            opacity: 0.9;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #a29bfe;
+            color: #a29bfe;
+            box-shadow: none;
+        }
+
+        /* ==========================================
+           2. 進入/標題畫面 (Title Screen)
+           ========================================== */
+        #title-screen {
+            background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)),
+                        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%231a1a24"/><path d="M0 0l100 100M100 0l-100 100" stroke="%232d2d3f" stroke-width="1"/></svg>');
+            background-size: cover;
+            justify-content: space-between;
+            align-items: center;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .title-logo {
+            margin-top: 40px;
+        }
+
+        .title-logo h1 {
+            font-size: 32px;
+            letter-spacing: 2px;
+            color: #a29bfe;
+            text-shadow: 0 0 10px rgba(162, 155, 254, 0.5);
+        }
+
+        .title-logo p {
+            font-size: 14px;
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .start-prompt {
+            animation: pulse 1.5s infinite;
+            font-size: 18px;
+            color: #fd79a8;
+            font-weight: bold;
+            margin-bottom: 40px;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+
+        /* ==========================================
+           3. 大廳介面 (Lobby Screen)
+           ========================================== */
+        /* 頂部資源列 (Top Bar) */
+        .top-bar {
+            height: 60px;
+            background-color: rgba(26, 26, 36, 0.9);
+            border-bottom: 1px solid #2d2d3f;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 16px;
+            z-index: 10;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar-placeholder {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #6c5ce7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .resources {
+            display: flex;
+            gap: 12px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .res-item {
+            background-color: #2d2d3f;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* 大廳主區域 (Main Body) */
+        .lobby-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px 16px;
+            position: relative;
+        }
+
+        .banner-area {
+            width: 100%;
+            height: 120px;
+            background: linear-gradient(135deg, #2d2d3f, #3f3f5a);
+            border-radius: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #aaa;
+            font-size: 14px;
+            border: 1px dashed #555;
+        }
+
+        /* 核心入口按鈕組 (Main Actions) */
+        .action-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .btn-story {
+            background: linear-gradient(135deg, #e84393, #fd79a8);
+            font-size: 20px;
+            padding: 18px;
+            box-shadow: 0 6px 15px rgba(232, 67, 147, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 底部導覽列 (Bottom Navigation) */
+        .bottom-nav {
+            height: 70px;
+            background-color: #14141e;
+            border-top: 1px solid #2d2d3f;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: #777;
+            font-size: 11px;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .nav-item.active {
+            color: #a29bfe;
+        }
+
+        .nav-icon {
+            font-size: 20px;
+        }
+
+        /* 除錯監控小視窗 */
+        #debug-log {
+            position: absolute;
+            bottom: 75px;
+            left: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #00ff66;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 8px;
+            border-radius: 8px;
+            max-height: 80px;
+            overflow-y: auto;
+            pointer-events: none;
+            z-index: 100;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 手機容器框 -->
+    <div id="game-container">
+
+        <!-- 1. 標題/登入畫面 -->
+        <div id="title-screen" class="screen active" onclick="enterLobby()">
+            <div class="title-logo">
+                <h1>異世界物語</h1>
+                <p>PROJECT ISKAI</p>
+            </div>
+            
+            <div class="start-prompt">
+                輕觸螢幕進入遊戲
+            </div>
+        </div>
+
+        <!-- 2. 大廳畫面 -->
+        <div id="lobby-screen" class="screen">
+            <!-- 頂部資源列 -->
+            <div class="top-bar">
+                <div class="user-info">
+                    <div class="avatar-placeholder">LV</div>
+                    <div>
+                        <div style="font-size: 13px; font-weight: bold;">冒險者</div>
+                        <div style="font-size: 10px; color: #888;">Lv. 1</div>
+                    </div>
+                </div>
+                <div class="resources">
+                    <div class="res-item">🪙 <span id="res-gold">1000</span></div>
+                    <div class="res-item">💎 <span id="res-gem">50</span></div>
+                </div>
+            </div>
+
+            <!-- 大廳主體內容 -->
+            <div class="lobby-body">
+                <!-- 活動/公告橫幅佔位 -->
+                <div class="banner-area">
+                    📢 最新活動：第一章劇情開放中！
+                </div>
+
+                <!-- 核心功能按鈕 -->
+                <div class="action-group">
+                    <button class="btn btn-story" onclick="openStorySelect()">
+                        📖 進入故事 / 冒險
+                    </button>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-outline" style="flex: 1;" onclick="logMessage('點擊了 [角色] 功能')">👥 角色</button>
+                        <button class="btn btn-outline" style="flex: 1;" onclick="logMessage('點擊了 [背包] 功能')">🎒 背包</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部導覽列 -->
+            <div class="bottom-nav">
+                <div class="nav-item active" onclick="switchNav(this, '主頁')">
+                    <span class="nav-icon">🏰</span>
+                    <span>主頁</span>
+                </div>
+                <div class="nav-item" onclick="switchNav(this, '招募')">
+                    <span class="nav-icon">🍻</span>
+                    <span>招募</span>
+                </div>
+                <div class="nav-item" onclick="switchNav(this, '商店')">
+                    <span class="nav-icon">🏪</span>
+                    <span>商店</span>
+                </div>
+                <div class="nav-item" onclick="switchNav(this, '設定')">
+                    <span class="nav-icon">⚙️</span>
+                    <span>設定</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 即時除錯紀錄面板 -->
+        <div id="debug-log">Log: 遊戲啟動完成，請點擊螢幕進入大廳。</div>
+
+    </div>
+
+    <!-- 腳本邏輯區 -->
+    <script>
+        // 全域遊戲狀態資料
+        const gameState = {
+            user: { name: "冒險者", level: 1 },
+            resources: { gold: 1000, gem: 50 },
+            currentScreen: "title-screen"
+        };
+
+        // 畫面切換控制函式
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+            const targetScreen = document.getElementById(screenId);
+            if (targetScreen) {
+                targetScreen.classList.add('active');
+                gameState.currentScreen = screenId;
+                logMessage(`切換畫面至: ${screenId}`);
+            } else {
+                console.error(`找不到畫面 ID: ${screenId}`);
+            }
+        }
+
+        // 從標題進入大廳
+        function enterLobby() {
+            showScreen('lobby-screen');
+            logMessage("成功進入大廳頁面");
+        }
+
+        // 點擊「進入故事」預留函式
+        function openStorySelect() {
+            logMessage("準備進入 [故事與章節選擇系統]");
+            alert("下一階段：即將為您打開「章節與故事選擇介面」！");
+        }
+
+        // 底部 Nav 切換標示
+        function switchNav(element, navName) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            logMessage(`切換底部分頁: ${navName}`);
+        }
+
+        // 畫面上顯示除錯訊息 (可方便手機測試時觀察)
+        function logMessage(msg) {
+            console.log(`[GAME LOG] ${msg}`);
+            const logBox = document.getElementById('debug-log');
+            if (logBox) {
+                const time = new Date().toLocaleTimeString();
+                logBox.innerHTML = `[${time}] ${msg}<br>` + logBox.innerHTML;
+            }
+        }
+    </script>
+</body>
+</html>
